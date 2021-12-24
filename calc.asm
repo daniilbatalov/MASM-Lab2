@@ -16,6 +16,8 @@ negflag		dw			?
 msgerr1		db			'Error! The first denominator is equal to zero!', 0DH, 0AH, '$'
 msgerr2		db			'Error! The second denominator is equal to zero!', 0DH, 0AH, '$'
 
+overerr		db			'Error! Overflow!', 0DH, 0AH, '$'
+
 msga		db 			'Enter a: $'
 msgb		db 			'Enter b: $'
 d			ends
@@ -134,13 +136,17 @@ start:		mov			ax, d
 
 			mov			ax, a
 			sub			ax, b
+			jo			overfl
 			cmp			ax, 0
+			jo			overfl
 			je			fnerr
 			push		ax
 
-			mov			ax, a
+			mov 		ax, a
 			add			ax, b
+			jo			overfl
 			cmp			ax, 0
+			jo			overfl
 			je			snerr
 			mov			bx, ax		;BX = (A+B), STACK = (A-B)
 
@@ -149,27 +155,32 @@ start:		mov			ax, d
 			cwd
 			idiv		cx			
 			add			ax, b		;AX = A/4 + B
+			jo			overfl
+			cwd
 			idiv		bx
-			push		ax			;STACK =  [(A/4+B)/(A+B)]; [(A-B)]
-
-			pop			ax
 			pop			bx
 			push		ax			;BX = [(A-B)]; STACK =  [(A/4+B)/(A+B)]
 
 			mov			ax, a
 			imul		ax
+			jo			overfl
 			mov			cx, 3
 			imul		cx
+			jo			overfl
 			mov			cx, b
 			imul		cx
+			jo			overfl
 			imul		cx
+			jo			overfl
 			inc			ax
 			adc			dx, 0
+			jo			overfl
 			idiv		bx			;AX = (3A^2B^3+1)/(A-B); STACK =  [(A/4+B)/(A+B)]
 
 			pop			bx
 			sub			ax, bx
-
+			jo			overfl
+			
 			Call		IntegerOut
 
 			jmp			exit
@@ -183,6 +194,10 @@ snerr:		mov			ah, 9
 			lea			dx,	msgerr2
 			int			21H
 			jmp			start
+
+overfl:		mov			ah, 9
+			lea			dx,	overerr
+			int			21H
 
 exit:		mov			ah, 4CH
 			int			21H
